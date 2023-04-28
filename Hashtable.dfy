@@ -17,13 +17,13 @@ class Hashtable<K(==,!new),V(!new)> {
 
     function list_find (k:K, l:List<(K,V)>) : option<V>
         ensures match list_find(k,l) {
-            case None => ∀ v • !mem((k,v),l)
+            case None => forall v :: !mem((k,v),l)
             case Some(v) => mem((k,v),l)
         }
     {
         match l {
             case Nil => None
-            case Cons((`k,v),xs) ⇒ if k=k` then Some(v) else list_find(k,xs)
+            case Cons((k`,v),xs) => if k=k` then Some(v) else list_find(k,xs)        
         }
     }
 
@@ -31,12 +31,12 @@ class Hashtable<K(==,!new),V(!new)> {
 
     function list_remove(k: K,l: List<(K,V)>) : List<(K,V)>
         decreases l
-        ensures ∀ `k , v • mem((`k,v),list_remove(k,l)) ⇐⇒ (mem((`k,v),l) && `k != k)
+        ensures forall k` , v :: mem((k`,v),list_remove(k,l)) <==> (mem((k`,v),l) && k` != k)
     {
         match l {
             case Nil ⇒ Nil
-            case Cons((`k,v),xs) ⇒ if k=`k then list_remove(k,xs) else
-            Cons((`k,v),list_remove(k,xs))
+            case Cons((k`,v),xs) => if k=k` then list_remove(k,xs) else
+            Cons((k`,v),list_remove(k,xs))
         }
     }
 
