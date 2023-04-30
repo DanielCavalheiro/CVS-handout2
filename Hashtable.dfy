@@ -4,6 +4,31 @@ datatype Option<T> = None | Some(elem: T)
 class Hashtable<K(==,!new),V(!new)> {
   var size : int;
   var data : array<List<(K,V)>>;
+  
+
+  //1. All key-value pairs are in the appropriate bucket list
+  ghost predicate valid_hash_aux(len:int, l:List<(K,V)>, i:int)
+    requires 0 <= i < len
+  {
+    match l {
+      case Nil => true
+      case Cons((k,v),xs) => bucket(k, len) == i && valid_hash_aux(len, xs, i)
+    }
+  }
+  ghost predicate valid_hash(d:array<List<(K,V)>>, i:int)
+    requires 0 <= i < d.Length
+    reads d
+  {
+    valid_hash_aux(d.Length, d[i], i)
+  }
+  ghost predicate valid_pairs_bucket()
+    reads this, data
+  {
+    forall i :: 0 <= i < data.Length ==> valid_hash(data, i)
+  }
+
+  //2. The hastable and its contents implement exactly a map
+  ghost predicate valid_data(k: K,v: V,m: map<K,Option<V>>, d: array<List<(K,V)>>)
 
   function hash(key: K) : int
 
