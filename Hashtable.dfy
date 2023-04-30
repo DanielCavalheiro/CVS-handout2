@@ -5,6 +5,7 @@ class Hashtable<K(==,!new),V(!new)> {
   var size : int;
   var data : array<List<(K,V)>>;
   
+  ghost var mapa : map<K,Option<V>>;
 
   //1. All key-value pairs are in the appropriate bucket list
   ghost predicate valid_hash_aux(len:int, l:List<(K,V)>, i:int)
@@ -28,7 +29,26 @@ class Hashtable<K(==,!new),V(!new)> {
   }
 
   //2. The hastable and its contents implement exactly a map
-  ghost predicate valid_data(k: K,v: V,m: map<K,Option<V>>, d: array<List<(K,V)>>)
+  ghost predicate valid_data(k:K,v:V,m:map<K,Option<V>>, d:array<List<(K,V)>>)
+    reads this, d
+    requires 0 < d.Length
+  {
+    var b := bucket(k, d.Length);
+    (k in m ==> list_find(k, m[k]) == Some(v)) <==> (list_find(k, d[b]) == Some(v))
+  }
+  ghost predicate valid_map()
+    reads this, data
+    requires size == data.Length && size > 0
+  {
+    forall k,v :: k in mapa <==> valid_data(k,v,mapa,data)
+  }
+
+  ghost predicate valid()
+    reads this, data
+    requires size == data.Length && size > 0
+  {
+    valid_pairs_bucket() && valid_map()
+  }
 
   function hash(key: K) : int
 
@@ -40,9 +60,13 @@ class Hashtable<K(==,!new),V(!new)> {
 
   constructor(n: int)
     requires n > 0
+    ensures size == n && data.Length == size
+    ensures valid()
+    ensures mapa == map[] && fresh(data)
   {
     size := n;
-    data := new List<(K,V)>[n];
+    data := new List<(K,V)>[n](_ => Nil);
+    mapa := map[];
   }
 
   method clear()
