@@ -31,23 +31,22 @@ class Hashtable<K(==,!new),V(!new)> {
   //2. The hastable and its contents implement exactly a map
   ghost predicate valid_data(k:K,v:V,m:map<K,Option<V>>, d:array<List<(K,V)>>)
     reads this, d
-    requires 0 < d.Length
+    requires 0 < size == d.Length
   {
-    var b := bucket(k, d.Length);
+    var b := bucket(k, size);
     (k in m ==> m[k] == Some(v)) <==> (list_find(k, d[b]) == Some(v))
   }
   ghost predicate valid_map()
     reads this, data
-    requires size == data.Length && size > 0
+    requires 0 < size == data.Length
   {
     forall k,v :: k in mapa <==> valid_data(k,v,mapa,data)
   }
 
   ghost predicate valid()
     reads this, data
-    requires size == data.Length && size > 0
   {
-    valid_pairs_bucket() && valid_map()
+    0 < size == data.Length && valid_pairs_bucket() && valid_map()
   }
 
   function hash(key: K) : int
@@ -60,7 +59,7 @@ class Hashtable<K(==,!new),V(!new)> {
 
   constructor(n: int)
     requires n > 0
-    ensures size == n && data.Length == size
+    ensures 0 < size == data.Length
     ensures valid()
     ensures mapa == map[] && fresh(data)
   {
@@ -69,7 +68,22 @@ class Hashtable<K(==,!new),V(!new)> {
     mapa := map[];
   }
 
-  method clear()
+method clear()
+  requires valid()
+  modifies data
+  ensures mapa == map[]
+  ensures forall i:int :: 0 <= i < data.Length ==> data[i] == Nil
+{
+  mapa := map[];
+  var i:int := 0;
+  while(i < data.Length)
+    invariant 0 <= i <= data.Length
+    invariant forall j:int :: 0 <= j < i ==> data[j] == Nil
+    decreases data.Length - i
+  {
+    data[i] := Nil;
+  }
+}
 
   method resize()
 
@@ -94,6 +108,11 @@ class Hashtable<K(==,!new),V(!new)> {
   }
 
   method find(k: K) returns (r: Option<V>)
+    requires valid()
+  {
+    var b := bucket(k, size);
+    r := list_find(k, data[b]);
+  }
 
   function list_remove(k: K,l: List<(K,V)>) : List<(K,V)>
     decreases l
