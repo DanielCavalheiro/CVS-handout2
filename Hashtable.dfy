@@ -34,7 +34,7 @@ class Hashtable<K(==,!new),V(!new)> {
     requires 0 < d.Length
   {
     var b := bucket(k, d.Length);
-    (k in m ==> list_find(k, m[k]) == Some(v)) <==> (list_find(k, d[b]) == Some(v))
+    (k in m ==> m[k] == Some(v)) <==> (list_find(k, d[b]) == Some(v))
   }
   ghost predicate valid_map()
     reads this, data
