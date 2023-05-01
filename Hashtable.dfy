@@ -126,6 +126,13 @@ method clear()
   }
 
   method remove(k: K)
+    requires valid()
+  {
+    var b := bucket(k, size);
+    list_remove(k, data[b]);
+    size := size - 1;
+    mapa := mapa[k := None];
+  }
 
   method add(k: K,v: V)
 }
