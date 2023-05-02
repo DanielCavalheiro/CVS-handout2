@@ -4,7 +4,7 @@ datatype Option<T> = None | Some(elem: T)
 class Hashtable<K(==,!new),V(!new)> {
   var size : int;
   var data : array<List<(K,V)>>;
-  
+
   ghost var mapa : map<K,Option<V>>;
 
   //1. All key-value pairs are in the appropriate bucket list
@@ -68,17 +68,17 @@ class Hashtable<K(==,!new),V(!new)> {
     mapa := map[];
   }
 
-method clear()
-  requires valid()
-  modifies this, data
-  ensures mapa == map[]
-  ensures fresh(data)
-{
-  mapa := map[];
-  var i:int := 0;
-  var new_data := new List<(K,V)>[data.Length](_ => Nil);
-  data := new_data;
-}
+  method clear()
+    requires valid()
+    modifies this, data
+    ensures mapa == map[]
+    ensures fresh(data)
+  {
+    mapa := map[];
+    var i:int := 0;
+    var new_data := new List<(K,V)>[data.Length](_ => Nil);
+    data := new_data;
+  }
 
   method resize()
 
@@ -123,6 +123,8 @@ method clear()
   method remove(k: K)
     modifies this, data
     requires valid()
+    ensures k in mapa ==> mapa[k] == None
+    ensures valid()
     ensures forall v :: !mem((k,v),data[bucket(k,size)])
   {
     var b := bucket(k, size);
@@ -131,4 +133,14 @@ method clear()
   }
 
   method add(k: K,v: V)
+    modifies this, data
+    requires valid()
+    ensures valid()
+    ensures k in mapa ==> mapa[k] == Some(v)
+    ensures mem((k,v), data[bucket(k,size)])
+  {
+    var b := bucket(k, size);
+    data[b] := Cons((k,v), data[b]);
+    mapa := mapa[k := Some(v)];
+  }
 }
