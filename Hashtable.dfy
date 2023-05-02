@@ -34,13 +34,13 @@ class Hashtable<K(==,!new),V(!new)> {
     requires 0 < size == d.Length
   {
     var b := bucket(k, size);
-    (k in m ==> m[k] == Some(v)) <==> (list_find(k, d[b]) == Some(v))
+    (list_find(k, d[b]) == Some(v)) <==> (k in m && m[k] == Some(v)) && (list_find(k, d[b]) == None) <==> (k in m && m[k] == None)
   }
   ghost predicate valid_map()
     reads this, data
     requires 0 < size == data.Length
   {
-    forall k,v :: k in mapa <==> valid_data(k,v,mapa,data)
+    forall k :: k in mapa ==> exists v ::( mapa[k] == Some(v) || mapa[k] == None) && valid_data(k,v,mapa,data)
   }
 
   ghost predicate valid()
@@ -123,8 +123,8 @@ class Hashtable<K(==,!new),V(!new)> {
   method remove(k: K)
     modifies this, data
     requires valid()
-    ensures k in mapa ==> mapa[k] == None
     ensures valid()
+    ensures k in mapa ==> mapa[k] == None
     ensures forall v :: !mem((k,v),data[bucket(k,size)])
   {
     var b := bucket(k, size);
