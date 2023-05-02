@@ -34,13 +34,13 @@ class Hashtable<K(==,!new),V(!new)> {
     requires 0 < size == d.Length
   {
     var b := bucket(k, size);
-    (list_find(k, d[b]) == Some(v)) <==> (k in m && m[k] == Some(v)) && (list_find(k, d[b]) == None) <==> (k in m && m[k] == None)
+    (k in m && m[k] == Some(v)) ==> mem((k,v), d[b]) && (k !in m) ==> !mem((k,v), d[b])
   }
   ghost predicate valid_map()
     reads this, data
     requires 0 < size == data.Length
   {
-    forall k :: k in mapa ==> exists v ::( mapa[k] == Some(v) || mapa[k] == None) && valid_data(k,v,mapa,data)
+    forall k, v :: valid_data(k,v,mapa,data)
   }
 
   ghost predicate valid()
@@ -104,6 +104,11 @@ class Hashtable<K(==,!new),V(!new)> {
 
   method find(k: K) returns (r: Option<V>)
     requires valid()
+    ensures valid()
+    ensures match r {
+              case None => forall v :: !mem((k,v),data[bucket(k,size)])
+              case Some(v) => mem((k,v),data[bucket(k,size)])
+            }
   {
     var b := bucket(k, size);
     r := list_find(k, data[b]);
@@ -124,12 +129,12 @@ class Hashtable<K(==,!new),V(!new)> {
     modifies this, data
     requires valid()
     ensures valid()
-    ensures k in mapa ==> mapa[k] == None
+    ensures k !in mapa
     ensures forall v :: !mem((k,v),data[bucket(k,size)])
   {
     var b := bucket(k, size);
     data[b] := list_remove(k, data[b]);
-    mapa := mapa[k := None];
+    mapa := mapa - {k};
   }
 
   method add(k: K,v: V)
