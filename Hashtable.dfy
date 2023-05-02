@@ -72,19 +72,12 @@ method clear()
   requires valid()
   modifies this, data
   ensures mapa == map[]
-  ensures forall i:int :: 0 <= i < data.Length ==> data[i] == Nil
+  ensures fresh(data)
 {
   mapa := map[];
   var i:int := 0;
-  while(i < data.Length)
-    invariant mapa == map[]
-    invariant 0 <= i <= data.Length
-    invariant forall j:int :: 0 <= j < i ==> data[j] == Nil
-    decreases data.Length - i
-  {
-    data[i] := Nil;
-    i := i + 1;
-  }
+  var new_data := new List<(K,V)>[data.Length](_ => Nil);
+  data := new_data;
 }
 
   method resize()
@@ -128,14 +121,14 @@ method clear()
   }
 
   method remove(k: K)
-  //   requires valid()
-  //   ensures forall v :: !mem((k,v),data[bucket(k,size)])
-  // {
-  //   var b := bucket(k, size);
-  //   list_remove(k, data[b]);
-  //   size := size - 1;
-  //   mapa := mapa[k := None];
-  // }
+    modifies this, data
+    requires valid()
+    ensures forall v :: !mem((k,v),data[bucket(k,size)])
+  {
+    var b := bucket(k, size);
+    data[b] := list_remove(k, data[b]);
+    mapa := mapa[k := None];
+  }
 
   method add(k: K,v: V)
 }
