@@ -73,11 +73,70 @@ class Hashtable<K(==,!new),V(!new)> {
     size := 0;
   }
 
-  method rehash(arr: array<List<(K,V)>>, l : List<(K,V)>, index : int)
+  method rehash(arr: array<List<(K,V)>>, l : List<(K,V)>, oldSize : int, newSize : int, index : int)
+    requires valid()
+    requires 0 < oldSize == data.Length
+    requires arr.Length == newSize == (oldSize * 2) + 1
+    requires forall k,v :: mem((k,v), l) ==> bucket(k, oldSize) == index
+    requires forall j :: 0 <= j < newSize ==> valid_hash(arr, j)
+    requires forall k,v :: (
+                           if 0 <= bucket(k, oldSize) < index then valid_data(k,v,mapa,arr)
+                           else if bucket(k, oldSize) == index then (k in mapa && mapa[k] == Some(v))
+                                                                    <==> mem((k,v), l) || mem((k,v), arr[bucket(k, newSize)])
+                           else
+                             !mem((k,v), arr[bucket(k, newSize)])
+                             )
+    ensures valid()
+    ensures forall j :: 0 <= j < newSize ==> valid_hash(arr, j)
+    ensures forall k,v :: if 0 <= bucket(k, oldSize) <= index then valid_data(k,v,mapa,data)
+                          else
+                            !mem((k,v), arr[bucket(k, newSize)])
+    modifies arr
+    decreases l
+  {
+    match l {
+      case Nil => return;
+      case Cons((k,v), xs) => {
+        var b := bucket(k, newSize);
+        arr[b] := Cons((k,v), arr[b]);
+        rehash(arr, xs, oldSize, newSize, index);
+      }
+    }
+  }
+
 
 
   method resize()
-    
+    requires valid()
+    ensures valid()
+    ensures old(data.Length) < data.Length
+    ensures fresh(data)
+    modifies data, `data, `size
+  {
+    var oldSize := data.Length;
+    var newSize := (oldSize * 2) + 1;
+    var arr := new List<(K,V)>[newSize](_ => Nil);
+    var i: int := 0;
+    while(i < oldSize)
+      invariant 0 <= i <= oldSize
+      invariant forall j :: 0 <= j < newSize ==> valid_hash(arr, j)
+      invariant forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, oldSize) == i;
+      invariant forall k,v :: (
+                              if 0 <= bucket(k, oldSize) < i then valid_data(k,v,mapa,arr)
+                              else if bucket(k, oldSize) == i then valid_data(k, v, mapa,arr) && (k in mapa && mapa[k] == Some(v))
+                                                                   <==> mem((k,v), data[i]) || mem((k,v), arr[bucket(k, newSize)])
+                              else
+                                !mem((k,v), arr[bucket(k, newSize)])
+                                )
+      modifies arr
+    {
+      rehash(arr, data[i], oldSize, newSize, i);
+      assert forall k,v :: mem((k,v), data[i]) ==> mem((k,v), arr[bucket(k, newSize)]);
+      i := i + 1;
+    }
+    data := arr;
+  }
+
 
   ghost function mem<T>(x:T, l:List<T>) : bool {
     match l {
@@ -126,7 +185,7 @@ class Hashtable<K(==,!new),V(!new)> {
       case Nil => Nil
       case Cons((k',v),xs) => if k==k' then list_remove(k,xs) else
       Cons((k',v),list_remove(k,xs))
-    } 
+    }
   }
 
   method remove(k: K)
@@ -146,13 +205,13 @@ class Hashtable<K(==,!new),V(!new)> {
         assert k !in mapa || (k in mapa && mapa[k] == None);
       }
       case Some(v) => {
-        assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'),data[bucket(k', data.Length)]));   
+        assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'),data[bucket(k', data.Length)]));
         assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
 
         data[b] := list_remove(k, data[b]);
         mapa := mapa[k := None];
         size := size - 1;
-       
+
       }
     }
   }
@@ -170,7 +229,7 @@ class Hashtable<K(==,!new),V(!new)> {
     assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
 
     var old_list := data[b];
-    
+
     data[b] := Cons((k,v), old_list);
     mapa := mapa[k := Some(v)];
     //assert mem((k,v), data[b]) && k in mapa;
