@@ -130,7 +130,7 @@ class Hashtable<K(==,!new),V(!new)> {
   }
 
   method remove(k: K)
-    modifies this, data, `data
+    modifies  data, `size, `mapa
     requires valid()
     ensures valid()
     ensures k !in mapa || (k in mapa && mapa[k] == None)
@@ -146,7 +146,9 @@ class Hashtable<K(==,!new),V(!new)> {
         assert k !in mapa || (k in mapa && mapa[k] == None);
       }
       case Some(v) => {
-        assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'),data[bucket(k', data.Length)]));       
+        assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'),data[bucket(k', data.Length)]));   
+        assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
+
         data[b] := list_remove(k, data[b]);
         mapa := mapa[k := None];
         size := size - 1;
@@ -156,24 +158,25 @@ class Hashtable<K(==,!new),V(!new)> {
   }
 
   method add(k: K,v: V)
-    modifies this, data, `data
+    modifies  data, `size, `mapa
     requires valid()
     ensures valid()
     ensures k in mapa && mapa[k] == Some(v)
-    ensures size >= old(size)
   {
-    assert forall k', v' :: valid_data(k', v',mapa,data);
-    var kExists := find(k);
-    if(kExists == None) {
-      size := size + 1;
-    }
-    assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'),data[bucket(k', data.Length)]));       
+    remove(k);
     var b := bucket(k, data.Length);
-    data[b] := Cons((k,v), list_remove(k, data[b]));
+    //size := size + 1;
+    assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'), data[bucket(k', data.Length)]));
+
+    assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
+
+    var old_list := data[b];
+    
+    data[b] := Cons((k,v), old_list);
     mapa := mapa[k := Some(v)];
-    assert mem((k,v), data[b]) && k in mapa;
-    assert bucket(k, data.Length) == b && mem((k,v), data[b]);
-    assert valid_data(k,v,mapa,data);
+    //assert mem((k,v), data[b]) && k in mapa;
+    //assert bucket(k, data.Length) == b && mem((k,v), data[b]);
+    //assert valid_data(k,v,mapa,data);
 
 
   }
