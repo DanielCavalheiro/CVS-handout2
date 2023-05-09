@@ -165,9 +165,8 @@ class Hashtable<K(==,!new),V(!new)> {
   {
     remove(k);
     var b := bucket(k, data.Length);
-    //size := size + 1;
+    //size := size + 1; // prof disse para nao utilizar size
     assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'), data[bucket(k', data.Length)]));
-
     assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
 
     var old_list := data[b];
