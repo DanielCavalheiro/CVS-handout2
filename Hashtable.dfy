@@ -119,19 +119,30 @@ class Hashtable<K(==,!new),V(!new)> {
     var i: int := 0;
     while(i < oldSize)
       invariant 0 <= i <= oldSize
+      invariant arr != data
+      invariant old(data) == data
+      invariant oldSize == data.Length
+      invariant arr.Length == newSize == (oldSize * 2) + 1
       invariant forall j :: 0 <= j < newSize ==> valid_hash(arr, j)
-      invariant forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, oldSize) == i;
-      invariant forall k,v :: (
-                              if 0 <= bucket(k, oldSize) < i then valid_data(k,v,mapa,arr)
-                              else if bucket(k, oldSize) == i then valid_data(k, v, mapa,arr) && (k in mapa && mapa[k] == Some(v))
-                                                                   <==> mem((k,v), data[i]) || mem((k,v), arr[bucket(k, newSize)])
-                              else
-                                !mem((k,v), arr[bucket(k, newSize)])
-                                )
+      invariant forall j:: 0 <= j < data.Length ==> valid_hash(data,j) && forall k, v :: mem((k,v), data[j]) ==> bucket(k, oldSize) == j
+      invariant forall k, v :: if (0 <= bucket(k, oldSize) < i) then valid_data(k,v,mapa,arr) else !mem((k,v), arr[bucket(k, newSize)])
+      
       modifies arr
     {
+
+      assert forall k, v :: valid_data(k,v,mapa,data);
+      assert forall i :: 0 <= i < data.Length ==> valid_hash(data,i);
+      assert forall i :: 0 <= i < arr.Length ==> valid_hash(arr,i);
+      assert 0 <= i < data.Length;
+      assert forall k,v :: (
+                           if 0 <= bucket(k, data.Length) < i then valid_data(k,v,mapa,arr)
+                           else if bucket(k, data.Length) == i then ((k in mapa && mapa[k] == Some(v)) <==> mem((k,v), data[i]) || mem((k,v), arr[bucket(k, arr.Length)]) || valid_data(k,v,mapa,data))
+                           else
+                             !mem((k,v), arr[bucket(k, arr.Length)])
+                             );
+
       rehash(arr, data[i], oldSize, newSize, i);
-      assert forall k,v :: mem((k,v), data[i]) ==> mem((k,v), arr[bucket(k, newSize)]);
+      //assert forall k,v :: mem((k,v), data[i]) ==> mem((k,v), arr[bucket(k, newSize)]);
       i := i + 1;
     }
     data := arr;
@@ -235,6 +246,7 @@ class Hashtable<K(==,!new),V(!new)> {
     //assert mem((k,v), data[b]) && k in mapa;
     //assert bucket(k, data.Length) == b && mem((k,v), data[b]);
     //assert valid_data(k,v,mapa,data);
+    
 
 
   }
