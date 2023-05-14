@@ -88,7 +88,7 @@ class Hashtable<K(==,!new),V(!new)> {
                              )
     ensures valid()
     ensures forall j :: 0 <= j < newSize ==> valid_hash(arr, j)
-    ensures forall k,v :: if 0 <= bucket(k, oldSize) <= index then valid_data(k,v,mapa,data)
+    ensures forall k,v :: if 0 <= bucket(k, oldSize) <= index then valid_data(k,v,mapa,arr)
                           else
                             !mem((k,v), arr[bucket(k, newSize)])
     modifies arr
