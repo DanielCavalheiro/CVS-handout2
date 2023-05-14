@@ -4,8 +4,8 @@ datatype Option<T> = None | Some(elem: T)
 class Hashtable<K(==,!new),V(!new)> {
   var size : int;
   var data : array<List<(K,V)>>;
-
   ghost var mapa : map<K,Option<V>>;
+  var Repr : set<object>;
 
   //1. All key-value pairs are in the appropriate bucket list
   ghost predicate valid_hash(d:array<List<(K,V)>>, i:int)
@@ -15,30 +15,30 @@ class Hashtable<K(==,!new),V(!new)> {
     forall k, v :: mem((k,v), d[i]) ==> bucket(k, d.Length) == i
   }
   ghost predicate valid_pairs_bucket()
-    reads this, data
+    reads this, Repr
   {
-    forall i :: 0 <= i < data.Length ==> valid_hash(data, i)
+    data in Repr && forall i :: 0 <= i < data.Length ==> valid_hash(data, i)
   }
 
   //2. The hastable and its contents implement exactly a map
   ghost predicate valid_data(k:K,v:V,m:map<K,Option<V>>, d:array<List<(K,V)>>)
-    reads this, d
+    reads d
     requires 0 < d.Length
   {
     var b := bucket(k, d.Length);
     (k in m && m[k] == Some(v)) <==> mem((k,v), d[b])
   }
   ghost predicate valid_map()
-    reads this, data
+    reads this, Repr
     requires 0 < data.Length
   {
-    forall k, v :: valid_data(k,v,mapa,data)
+    data in Repr && forall k, v :: valid_data(k,v,mapa,data)
   }
 
   ghost predicate valid()
-    reads this, data
+    reads this, Repr
   {
-    0 < data.Length && valid_pairs_bucket() && valid_map()
+    this in Repr && data in Repr && 0 < data.Length && valid_pairs_bucket() && valid_map()
   }
 
   function hash(key: K) : int
@@ -53,18 +53,20 @@ class Hashtable<K(==,!new),V(!new)> {
     requires n > 0
     ensures 0 < data.Length
     ensures valid()
-    ensures mapa == map[] && fresh(data)
+    ensures fresh(Repr - {this})
+    ensures mapa == map[]
   {
     size := 0;
     data := new List<(K,V)>[n](_ => Nil);
     mapa := map[];
+    Repr := {this, data};
   }
 
   method clear()
     requires valid()
-    modifies this, data
+    modifies Repr
     ensures mapa == map[]
-    ensures fresh(data)
+    ensures fresh(Repr - old(Repr))
   {
     mapa := map[];
     var i:int := 0;
@@ -88,7 +90,7 @@ class Hashtable<K(==,!new),V(!new)> {
                              )
     ensures valid()
     ensures forall j :: 0 <= j < newSize ==> valid_hash(arr, j)
-    ensures forall k,v :: if 0 <= bucket(k, oldSize) <= index then valid_data(k,v,mapa,data)
+    ensures forall k,v :: if 0 <= bucket(k, oldSize) <= index then valid_data(k,v,mapa,arr)
                           else
                             !mem((k,v), arr[bucket(k, newSize)])
     modifies arr
@@ -104,20 +106,19 @@ class Hashtable<K(==,!new),V(!new)> {
     }
   }
 
-
-
   method resize()
     requires valid()
     ensures valid()
     ensures old(data.Length) < data.Length
-    ensures fresh(data)
-    modifies data, `data, `size
+    ensures fresh(Repr - old(Repr))
+    modifies Repr
   {
     var oldSize := data.Length;
     var newSize := (oldSize * 2) + 1;
     var arr := new List<(K,V)>[newSize](_ => Nil);
     var i: int := 0;
     while(i < oldSize)
+      invariant Repr == old(Repr)
       invariant 0 <= i <= oldSize
       invariant arr != data
       invariant old(data) == data
@@ -130,8 +131,8 @@ class Hashtable<K(==,!new),V(!new)> {
       modifies arr
     {
 
-      assert forall i :: 0 <= i < arr.Length ==> valid_hash(arr,i);
-      assert forall i :: 0 <= i < data.Length ==> valid_hash(data,i);
+      assert forall i :: 0 <= i < arr.Length ==> valid_hash(arr,i) && forall k, v :: mem((k,v), arr[i]) ==> bucket(k, arr.Length) == i ;
+      assert forall i :: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
       assert 0 <= i < data.Length;
       assert valid_hash(data, i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
       assert forall k, v :: valid_data(k,v,mapa,data) && ((k in mapa && mapa[k] == Some(v)) <==> mem((k,v), data[bucket(k, data.Length)]));
@@ -147,6 +148,7 @@ class Hashtable<K(==,!new),V(!new)> {
       i := i + 1;
     }
     data := arr;
+    Repr := Repr + {data};
   }
 
 
@@ -201,9 +203,10 @@ class Hashtable<K(==,!new),V(!new)> {
   }
 
   method remove(k: K)
-    modifies  data, `size, `mapa
+    modifies Repr
     requires valid()
     ensures valid()
+    ensures fresh(Repr - old(Repr))
     ensures k !in mapa || (k in mapa && mapa[k] == None)
   {
 
@@ -229,14 +232,15 @@ class Hashtable<K(==,!new),V(!new)> {
   }
 
   method add(k: K,v: V)
-    modifies  data, `size, `mapa
+    modifies  Repr
     requires valid()
     ensures valid()
+    ensures fresh(Repr - old(Repr))
     ensures k in mapa && mapa[k] == Some(v)
   {
     remove(k);
     var b := bucket(k, data.Length);
-    //size := size + 1; // prof disse para nao utilizar size
+    size := size + 1;
     assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'), data[bucket(k', data.Length)]));
     assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
 
@@ -244,11 +248,6 @@ class Hashtable<K(==,!new),V(!new)> {
 
     data[b] := Cons((k,v), old_list);
     mapa := mapa[k := Some(v)];
-    //assert mem((k,v), data[b]) && k in mapa;
-    //assert bucket(k, data.Length) == b && mem((k,v), data[b]);
-    //assert valid_data(k,v,mapa,data);
     
-
-
   }
 }
