@@ -130,13 +130,14 @@ class Hashtable<K(==,!new),V(!new)> {
       modifies arr
     {
 
-      assert forall k, v :: valid_data(k,v,mapa,data);
-      assert forall i :: 0 <= i < data.Length ==> valid_hash(data,i);
       assert forall i :: 0 <= i < arr.Length ==> valid_hash(arr,i);
+      assert forall i :: 0 <= i < data.Length ==> valid_hash(data,i);
       assert 0 <= i < data.Length;
+      assert valid_hash(data, i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
+      assert forall k, v :: valid_data(k,v,mapa,data) && ((k in mapa && mapa[k] == Some(v)) <==> mem((k,v), data[bucket(k, data.Length)]));
       assert forall k,v :: (
                            if 0 <= bucket(k, data.Length) < i then valid_data(k,v,mapa,arr)
-                           else if bucket(k, data.Length) == i then ((k in mapa && mapa[k] == Some(v)) <==> mem((k,v), data[i]) || mem((k,v), arr[bucket(k, arr.Length)]) || valid_data(k,v,mapa,data))
+                           else if bucket(k, data.Length) == i then ((k in mapa && mapa[k] == Some(v)) <==> mem((k,v), data[i]) || mem((k,v), arr[bucket(k, arr.Length)]))
                            else
                              !mem((k,v), arr[bucket(k, arr.Length)])
                              );
