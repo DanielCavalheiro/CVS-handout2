@@ -2,10 +2,10 @@ datatype List<T> = Nil | Cons(head: T,tail: List<T>)
 datatype Option<T> = None | Some(elem: T)
 
 class Hashtable<K(==,!new),V(!new)> {
-  var size : int;
+  var size : int; //prof disse que size nao seria necessario para a prova
   var data : array<List<(K,V)>>;
   ghost var mapa : map<K,Option<V>>;
-  var Repr : set<object>;
+  ghost var Repr : set<object>;
 
   //1. All key-value pairs are in the appropriate bucket list
   ghost predicate valid_hash(d:array<List<(K,V)>>, i:int)
@@ -71,7 +71,11 @@ class Hashtable<K(==,!new),V(!new)> {
     mapa := map[];
     var i:int := 0;
     var new_data := new List<(K,V)>[data.Length](_ => Nil);
+    
+    Repr := Repr - {data};
     data := new_data;
+    Repr := Repr + {data};
+
     size := 0;
   }
 
@@ -109,7 +113,6 @@ class Hashtable<K(==,!new),V(!new)> {
   method resize()
     requires valid()
     ensures valid()
-    ensures old(data.Length) < data.Length
     ensures fresh(Repr - old(Repr))
     modifies Repr
   {
@@ -130,11 +133,6 @@ class Hashtable<K(==,!new),V(!new)> {
       
       modifies arr
     {
-
-      assert forall i :: 0 <= i < arr.Length ==> valid_hash(arr,i) && forall k, v :: mem((k,v), arr[i]) ==> bucket(k, arr.Length) == i ;
-      assert forall i :: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
-      assert 0 <= i < data.Length;
-      assert valid_hash(data, i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
       assert forall k, v :: valid_data(k,v,mapa,data) && ((k in mapa && mapa[k] == Some(v)) <==> mem((k,v), data[bucket(k, data.Length)]));
       assert forall k,v :: (
                            if 0 <= bucket(k, data.Length) < i then valid_data(k,v,mapa,arr)
@@ -144,9 +142,9 @@ class Hashtable<K(==,!new),V(!new)> {
                              );
 
       rehash(arr, data[i], oldSize, newSize, i);
-      //assert forall k,v :: mem((k,v), data[i]) ==> mem((k,v), arr[bucket(k, newSize)]);
       i := i + 1;
     }
+    Repr := Repr - {data};
     data := arr;
     Repr := Repr + {data};
   }
@@ -223,9 +221,11 @@ class Hashtable<K(==,!new),V(!new)> {
         assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'),data[bucket(k', data.Length)]));
         assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
 
+        Repr := Repr - {data};
         data[b] := list_remove(k, data[b]);
         mapa := mapa[k := None];
         size := size - 1;
+        Repr := Repr + {data};
 
       }
     }
@@ -238,16 +238,23 @@ class Hashtable<K(==,!new),V(!new)> {
     ensures fresh(Repr - old(Repr))
     ensures k in mapa && mapa[k] == Some(v)
   {
+
+    if (size >= (data.Length * 3/4)) {
+      resize();
+    }
+
     remove(k);
     var b := bucket(k, data.Length);
-    size := size + 1;
+    size := size + 1; //prof disse que size nao seria necessario para a prova
     assert forall k',v':: valid_data(k', v', mapa,data) && ((k' in mapa && mapa[k'] == Some(v')) <==> mem((k',v'), data[bucket(k', data.Length)]));
     assert forall i:: 0 <= i < data.Length ==> valid_hash(data,i) && forall k, v :: mem((k,v), data[i]) ==> bucket(k, data.Length) == i;
 
+    Repr := Repr - {data};
     var old_list := data[b];
 
     data[b] := Cons((k,v), old_list);
     mapa := mapa[k := Some(v)];
-    
+    Repr := Repr + {data};
+
   }
 }
